@@ -1,6 +1,9 @@
 use core::convert::TryFrom;
+use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
+
+use crate::util::CallbackFn;
 
 use super::property::Property;
 
@@ -37,6 +40,8 @@ pub enum Command {
     GetProperty(Property),
     ReceiveSbFile {
         data: Vec<u8>,
+        #[serde(skip_serializing, skip_deserializing, default)]
+        callback: Option<CallbackFn<ReceiveProgress>>,
     },
     Call,
     Reset,
@@ -113,7 +118,7 @@ impl Command {
 
                 DataPhase::CommandData(bytes)
             }
-            (Command::ReceiveSbFile { data }, _) => DataPhase::CommandData(data.clone()),
+            (Command::ReceiveSbFile { data , ..}, _) => DataPhase::CommandData(data.clone()),
 
             (Command::Keystore(KeystoreOperation::Enroll), _) => DataPhase::None,
             (Command::Keystore(KeystoreOperation::ReadKeystore), _) => DataPhase::ResponseData,
@@ -156,7 +161,7 @@ impl Command {
             ConfigureMemory { address } => {
                 vec![0, address as u32]
             }
-            ReceiveSbFile { data } => {
+            ReceiveSbFile { data , ..} => {
                 vec![data.len() as _]
             }
             Reset => {
@@ -214,7 +219,7 @@ impl Command {
             FillMemory => Tag::FillMemory,
             FlashSecurityDisable => Tag::FlashSecurityDisable,
             GetProperty(_) => Tag::GetProperty,
-            ReceiveSbFile { data: _ } => Tag::ReceiveSbFile,
+            ReceiveSbFile { data: _, .. } => Tag::ReceiveSbFile,
             Call => Tag::Call,
             Reset => Tag::Reset,
             FlashReadResource => Tag::FlashReadResource,
@@ -312,6 +317,12 @@ impl TryFrom<u8> for ResponseTag {
             _ => return Err(byte),
         })
     }
+}
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct ReceiveProgress {
+    pub total: usize,
+    pub received: usize,
+    pub delta: usize,
 }
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]

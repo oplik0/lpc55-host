@@ -34,7 +34,7 @@
 //  Host may abort data phase by sending generic response (?is this a thing?)
 
 use super::Error as BootloaderError;
-use crate::bootloader::{command, property};
+use crate::bootloader::{command::{self, ReceiveProgress}, property};
 use core::convert::{TryFrom, TryInto};
 
 use hidapi::{HidDevice, HidResult};
@@ -259,12 +259,20 @@ impl Protocol {
 
                         Ok(command::Response::Generic)
                     }
-                    command::Command::ReceiveSbFile { data } => {
+                    command::Command::ReceiveSbFile { data, callback } => {
                         #[cfg(feature = "progressbar")]
                         let bar = indicatif::ProgressBar::new(data.len() as u64);
+                        let mut progress: ReceiveProgress = ReceiveProgress {total: data.len(), received: 0, delta: 32};
+                        if let Some(ref callback) = callback {
+                            (callback.cb)(progress);
+                        }
                         for chunk in data.chunks(32) {
                             #[cfg(feature = "progressbar")]
                             bar.inc(32);
+                            if let Some(ref callback) = callback {
+                                progress.received += progress.delta;
+                                (callback.cb)(progress);
+                            }
                             let mut data_packet = vec![
                                 command::ReportId::CommandData as u8,
                                 0,

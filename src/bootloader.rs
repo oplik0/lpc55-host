@@ -291,7 +291,7 @@ impl Bootloader {
         let _response = self
             .protocol
             .call(&Command::ReceiveSbFile {
-                data: data.to_vec(),
+                data: data.to_vec(), callback: None,
             })
             .expect("success");
     }
